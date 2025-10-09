@@ -64,6 +64,7 @@ export class AppComponent implements OnInit {
   showAgentPanel = false;
   agentTransferSummary: string | null = null;
   showAgentSummary = false;
+  showAgentHistory = false;
   composerInput = '';
   agentComposerInput = '';
   isCreatingSession = false;
@@ -191,6 +192,7 @@ export class AppComponent implements OnInit {
     this.showAgentPanel = false;
     this.agentTransferSummary = null;
     this.showAgentSummary = false;
+    this.showAgentHistory = false;
     this.composerInput = '';
     this.agentComposerInput = '';
     this.isSessionReady = false;
@@ -453,39 +455,30 @@ export class AppComponent implements OnInit {
 
         // Handle to_human_agent action
         if (action === 'to_human_agent' && typeof data.response === 'string') {
-          // Check if this is a reply to a human agent message or a new customer message
-          const isReplyToHumanAgent = this.agentThread.length > 0 && 
-            this.agentThread[this.agentThread.length - 1].role === 'agent';
+          // Create the customer message for agent panel
+          const agentMessage: ChatMessage = {
+            id: this.nextMessageId('customer-to-agent'),
+            role: 'customer',
+            author: `${this.customerName} • Customer`,
+            time: this.currentTime(),
+            text: data.response
+          };
           
-          if (isReplyToHumanAgent) {
-            // This is an AI reply to human agent message - show in agent thread as assistant message
-            const aiReplyMessage: ChatMessage = {
-              id: this.nextMessageId('ai-reply-to-agent'),
-              role: 'assistant',
-              author: `${this.assistantName} • AI Assistant`,
-              time: this.currentTime(),
-              text: data.response
-            };
-            this.appendAgentMessage(aiReplyMessage);
-          } else {
-            // This is a customer message to human agent
-            const agentMessage: ChatMessage = {
-              id: this.nextMessageId('customer-to-agent'),
-              role: 'customer',
-              author: `${this.customerName} • Customer`,
-              time: this.currentTime(),
-              text: data.response
-            };
-            this.appendAgentMessage(agentMessage);
+          // Set a summary for the human agent
+          if (!this.agentTransferSummary) {
+            this.agentTransferSummary = `Customer has requested human agent assistance: "${data.response}"`;
           }
           
           // Show agent panel if not already visible
           if (!this.showAgentPanel) {
             this.showAgentPanel = true;
+            // Copy current customer thread to agent thread for context, then add the new message
+            this.agentThread = [...this.customerThread, agentMessage];
+          } else {
+            // Agent panel already visible, just add the new message
+            this.appendAgentMessage(agentMessage);
           }
           
-          // Don't show this message to customer - it's handled separately
-          // Return true to prevent it from being added to directMessages
           return true;
         }
 
@@ -545,6 +538,9 @@ export class AppComponent implements OnInit {
     this.showAgentSummary = !this.showAgentSummary;
   }
 
+  toggleAgentHistory(): void {
+    this.showAgentHistory = !this.showAgentHistory;
+  }
 
   get canSendAgentMessage(): boolean {
     return this.showAgentPanel && !!this.agentComposerInput.trim();
@@ -556,7 +552,7 @@ export class AppComponent implements OnInit {
       return;
     }
 
-    // Create agent message for agent thread only
+    // Create agent message for agent thread
     const agentMessage: ChatMessage = {
       id: this.nextMessageId('agent'),
       role: 'agent',
@@ -565,8 +561,20 @@ export class AppComponent implements OnInit {
       text: trimmed
     };
 
-    // Add to agent thread only (not customer thread)
+    // Add to agent thread
     this.appendAgentMessage(agentMessage);
+
+    // Create message for customer thread with human agent role
+    const customerThreadMessage: ChatMessage = {
+      id: this.nextMessageId('human-agent'),
+      role: 'agent',
+      author: `${this.humanAgentName} • Human Agent`,
+      time: this.currentTime(),
+      text: trimmed
+    };
+
+    // Add to customer thread
+    this.appendMessage(customerThreadMessage);
 
     // Send formatted message to backend
     const formattedMessage = JSON.stringify({ user_type: 'human_agent', message: trimmed });
