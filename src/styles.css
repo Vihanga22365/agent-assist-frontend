@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background-color: #f5f7fb;
+  color: #0f172a;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: rgba(37, 99, 235, 0.18);
+  color: #0f172a;
+}
+
+.glass-card {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 32px -12px rgba(15, 23, 42, 0.18);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  transition: box-shadow 0.2s;
+}
+.glass-card:hover {
+  box-shadow: 0 16px 40px -10px rgba(37, 99, 235, 0.18);
+}
+
+.muted-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.muted-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.muted-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+
+.muted-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
