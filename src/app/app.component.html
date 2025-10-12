@@ -274,20 +274,6 @@
             }
           </div>
 
-          <footer class="border-t border-slate-200 bg-slate-50 px-5 xl:px-6 py-6 space-y-4">
-            <div class="flex flex-wrap gap-2">
-              @for (reply of quickReplies; track reply) {
-                <button
-                  type="button"
-                  (click)="applyQuickReply(reply)"
-                  [disabled]="!showAgentPanel"
-                  class="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-700 transition disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {{ reply }}
-                </button>
-              }
-            </div>
-          </footer>
         </div>
       </article>
     </section>

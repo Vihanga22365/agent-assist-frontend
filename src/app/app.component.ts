@@ -24,14 +24,6 @@ interface SummaryPoint {
   tone?: 'positive' | 'neutral' | 'warning';
 }
 
-interface SuggestionCard {
-  id: string;
-  title: string;
-  detail: string;
-  impact: string;
-  accent: 'primary' | 'success' | 'warning';
-}
-
 interface RunResponsePart {
   text?: string;
 }
@@ -122,36 +114,6 @@ export class AppComponent implements OnInit {
     { label: 'Channel', value: 'Live concierge chat', tone: 'positive' }
   ];
 
-  readonly agentSuggestions: SuggestionCard[] = [
-    {
-      id: 's1',
-      title: 'Confirm warehouse pickup & courier voucher',
-      detail: 'Call Valentina to lock the 10am pickup, then apply loyalty credit so the customer sees a $0 expedite fee.',
-      impact: 'Builds confidence and protects CSAT',
-      accent: 'primary'
-    },
-    {
-      id: 's2',
-      title: 'Send proactive confirmation message',
-      detail: 'Share the new delivery window, courier name, and contact details in one concise message before the customer asks.',
-      impact: 'Reduces repeat follow-ups',
-      accent: 'success'
-    },
-    {
-      id: 's3',
-      title: 'Add arrival alert & fragile handling note',
-      detail: 'Ask courier to text 15 minutes prior and mark package as fragile to avoid delays at the studio.',
-      impact: 'Prevents missed hand-off',
-      accent: 'warning'
-    }
-  ];
-
-  readonly quickReplies: string[] = [
-    'Confirm new delivery window for Amelia',
-    'Share courier contact & arrival protocol',
-    'Offer to text a recap once confirmed'
-  ];
-
   readonly knowledgeTags = ['Expedite policy', 'Tier 2 loyalty perks', 'Courier coordination'];
 
   bubbleClasses(role: ChatRole): string {
@@ -182,17 +144,6 @@ export class AppComponent implements OnInit {
         return 'bg-green-50 text-green-700 border-green-200';
       default:
         return 'bg-slate-100 text-slate-700 border-slate-200';
-    }
-  }
-
-  suggestionAccent(card: SuggestionCard): string {
-    switch (card.accent) {
-      case 'success':
-        return 'bg-green-50 border-green-200 text-green-700';
-      case 'warning':
-        return 'bg-amber-50 border-amber-200 text-amber-700';
-      default:
-        return 'bg-blue-50 border-blue-200 text-blue-700';
     }
   }
 
@@ -660,14 +611,4 @@ export class AppComponent implements OnInit {
     return false;
   }
 
-  applyQuickReply(reply: string): void {
-    if (!this.showAgentPanel) {
-      return;
-    }
-
-    this.agentComposerInput = reply;
-    if (!this.showAgentAiChat) {
-      this.showAgentAiChat = true;
-    }
-  }
 }
