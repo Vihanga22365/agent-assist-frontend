@@ -7,6 +7,8 @@ import { MarkdownPipe } from './markdown.pipe';
 
 type ChatRole = 'customer' | 'assistant' | 'agent' | 'system';
 
+type AgentAiRole = 'human_agent' | 'ai_agent';
+
 interface ChatMessage {
   id: string;
   role: ChatRole;
@@ -45,6 +47,14 @@ interface RunResponse {
 interface AgentReplyResult {
   directMessages: string[];
   transferSummaries: string[];
+}
+
+interface AgentAiMessage {
+  id: string;
+  role: AgentAiRole;
+  author: string;
+  time: string;
+  text: string;
 }
 
 @Component({
@@ -93,6 +103,8 @@ export class AppComponent implements OnInit {
 
   // Agent-side thread mirrors the customer conversation for quick context once transferred
   agentThread: ChatMessage[] = [];
+  agentAiThread: AgentAiMessage[] = [];
+  showAgentAiChat = false;
 
   readonly summaryHeadline = 'Customer preparing for an executive client workshop tomorrow';
 
@@ -189,10 +201,12 @@ export class AppComponent implements OnInit {
     this.sessionId = newSessionId;
     this.customerThread = [];
     this.agentThread = [];
+    this.agentAiThread = [];
     this.showAgentPanel = false;
     this.agentTransferSummary = null;
     this.showAgentSummary = false;
     this.showAgentHistory = false;
+    this.showAgentAiChat = false;
     this.composerInput = '';
     this.agentComposerInput = '';
     this.isSessionReady = false;
@@ -254,6 +268,9 @@ export class AppComponent implements OnInit {
 
           if (reply.directMessages.length) {
             for (const messageText of reply.directMessages) {
+              if (this.isHumanAgentAiPayload(messageText)) {
+                continue;
+              }
               this.appendMessage({
                 id: this.nextMessageId('assistant'),
                 role: 'assistant',
@@ -312,8 +329,8 @@ export class AppComponent implements OnInit {
     }
   }
 
-  private appendAgentMessage(message: ChatMessage): void {
-    this.agentThread = [...this.agentThread, message];
+  private appendAgentAiMessage(message: AgentAiMessage): void {
+    this.agentAiThread = [...this.agentAiThread, message];
   }
 
   private extractAgentReply(responses: RunResponse[] | null | undefined): AgentReplyResult {
@@ -344,7 +361,7 @@ export class AppComponent implements OnInit {
 
     if (!result.directMessages.length && !result.transferSummaries.length) {
       const fallback = responses[0]?.content?.parts?.[0]?.text?.trim();
-      if (fallback) {
+      if (fallback && !this.isHumanAgentAiPayload(fallback)) {
         result.directMessages.push(fallback);
       }
     }
@@ -359,7 +376,7 @@ export class AppComponent implements OnInit {
     }
 
     for (const fragment of fragments) {
-      if (!this.tryParseAgentJson(fragment, result)) {
+      if (!this.tryParseAgentJson(fragment, result) && !this.isHumanAgentAiPayload(fragment)) {
         result.directMessages.push(fragment);
       }
     }
@@ -455,30 +472,24 @@ export class AppComponent implements OnInit {
 
         // Handle to_human_agent action
         if (action === 'to_human_agent' && typeof data.response === 'string') {
-          // Create the customer message for agent panel
-          const agentMessage: ChatMessage = {
-            id: this.nextMessageId('customer-to-agent'),
-            role: 'customer',
-            author: `${this.customerName} • Customer`,
+          if (!this.showAgentPanel) {
+            this.showAgentPanel = true;
+            this.agentThread = [...this.customerThread];
+          }
+
+          // Ensure the collaborative panel is visible so agents notice new guidance
+          this.showAgentAiChat = true;
+
+          const aiMessage: AgentAiMessage = {
+            id: this.nextMessageId('ai-to-human'),
+            role: 'ai_agent',
+            author: `${this.assistantName} • AI Assistant`,
             time: this.currentTime(),
             text: data.response
           };
-          
-          // Set a summary for the human agent
-          if (!this.agentTransferSummary) {
-            this.agentTransferSummary = `Customer has requested human agent assistance: "${data.response}"`;
-          }
-          
-          // Show agent panel if not already visible
-          if (!this.showAgentPanel) {
-            this.showAgentPanel = true;
-            // Copy current customer thread to agent thread for context, then add the new message
-            this.agentThread = [...this.customerThread, agentMessage];
-          } else {
-            // Agent panel already visible, just add the new message
-            this.appendAgentMessage(agentMessage);
-          }
-          
+
+          this.appendAgentAiMessage(aiMessage);
+
           return true;
         }
 
@@ -542,7 +553,11 @@ export class AppComponent implements OnInit {
     this.showAgentHistory = !this.showAgentHistory;
   }
 
-  get canSendAgentMessage(): boolean {
+  toggleAgentAiChat(): void {
+    this.showAgentAiChat = !this.showAgentAiChat;
+  }
+
+  get canSendAgentAiMessage(): boolean {
     return this.showAgentPanel && !!this.agentComposerInput.trim();
   }
 
@@ -552,33 +567,23 @@ export class AppComponent implements OnInit {
       return;
     }
 
-    // Create agent message for agent thread
-    const agentMessage: ChatMessage = {
-      id: this.nextMessageId('agent'),
-      role: 'agent',
+    const agentAiMessage: AgentAiMessage = {
+      id: this.nextMessageId('human-to-ai'),
+      role: 'human_agent',
       author: `${this.humanAgentName} • Human Agent`,
       time: this.currentTime(),
       text: trimmed
     };
 
-    // Add to agent thread
-    this.appendAgentMessage(agentMessage);
+    if (!this.showAgentAiChat) {
+      this.showAgentAiChat = true;
+    }
 
-    // Create message for customer thread with human agent role
-    const customerThreadMessage: ChatMessage = {
-      id: this.nextMessageId('human-agent'),
-      role: 'agent',
-      author: `${this.humanAgentName} • Human Agent`,
-      time: this.currentTime(),
-      text: trimmed
-    };
-
-    // Add to customer thread
-    this.appendMessage(customerThreadMessage);
+    this.appendAgentAiMessage(agentAiMessage);
 
     // Send formatted message to backend
     const formattedMessage = JSON.stringify({ user_type: 'human_agent', message: trimmed });
-    
+
     const payload = {
       appName: this.appName,
       userId: this.userId,
@@ -597,6 +602,9 @@ export class AppComponent implements OnInit {
 
           if (reply.directMessages.length) {
             for (const messageText of reply.directMessages) {
+              if (this.isHumanAgentAiPayload(messageText)) {
+                continue;
+              }
               this.appendMessage({
                 id: this.nextMessageId('assistant'),
                 role: 'assistant',
@@ -622,5 +630,44 @@ export class AppComponent implements OnInit {
     }
     keyboardEvent.preventDefault();
     this.sendAgentMessage();
+  }
+
+  agentAiAlignment(role: AgentAiRole): string {
+    return role === 'human_agent' ? 'justify-end text-left' : 'justify-start text-left';
+  }
+
+  agentAiBubbleClasses(role: AgentAiRole): string {
+    return role === 'human_agent'
+      ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+      : 'bg-white border-slate-200 text-slate-900 shadow-sm';
+  }
+
+  private isHumanAgentAiPayload(value: string): boolean {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      return false;
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object' && typeof parsed.action === 'string') {
+        return parsed.action.toLowerCase() === 'to_human_agent';
+      }
+    } catch {
+      // Ignore parse errors; the caller will treat this as a normal message
+    }
+
+    return false;
+  }
+
+  applyQuickReply(reply: string): void {
+    if (!this.showAgentPanel) {
+      return;
+    }
+
+    this.agentComposerInput = reply;
+    if (!this.showAgentAiChat) {
+      this.showAgentAiChat = true;
+    }
   }
 }
