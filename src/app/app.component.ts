@@ -1,9 +1,10 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule, HttpErrorResponse } from '@angular/common/http';
 import { finalize } from 'rxjs/operators';
 import { MarkdownPipe } from './markdown.pipe';
+import { FloatingChatComponent } from './floating-chat/floating-chat.component';
 
 type ChatRole = 'customer' | 'assistant' | 'agent' | 'system';
 
@@ -52,11 +53,11 @@ interface AgentAiMessage {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [NgClass, FormsModule, HttpClientModule, MarkdownPipe],
+  imports: [NgClass, FormsModule, HttpClientModule, MarkdownPipe, FloatingChatComponent],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, AfterViewChecked {
   private readonly apiBaseUrl = 'http://localhost:8282';
   private readonly appName = 'main_agent';
   readonly userId = 'chathusha';
@@ -85,8 +86,26 @@ export class AppComponent implements OnInit {
 
   private readonly http = inject(HttpClient);
 
+  @ViewChild('customerChatContainer') customerChatContainer?: ElementRef;
+  @ViewChild('agentAiChatContainer') agentAiChatContainer?: ElementRef;
+  @ViewChild(FloatingChatComponent) floatingChatComponent?: FloatingChatComponent;
+
+  private shouldScrollCustomer = false;
+  private shouldScrollAgentAi = false;
+
   ngOnInit(): void {
     this.startNewSession();
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.shouldScrollCustomer) {
+      this.scrollToBottomCustomer();
+      this.shouldScrollCustomer = false;
+    }
+    if (this.shouldScrollAgentAi) {
+      this.scrollToBottomAgentAi();
+      this.shouldScrollAgentAi = false;
+    }
   }
 
   get canSendMessage(): boolean {
@@ -278,10 +297,12 @@ export class AppComponent implements OnInit {
     if (this.showAgentPanel) {
       this.agentThread = updated;
     }
+    this.shouldScrollCustomer = true;
   }
 
   private appendAgentAiMessage(message: AgentAiMessage): void {
     this.agentAiThread = [...this.agentAiThread, message];
+    this.shouldScrollAgentAi = true;
   }
 
   private extractAgentReply(responses: RunResponse[] | null | undefined): AgentReplyResult {
@@ -609,6 +630,26 @@ export class AppComponent implements OnInit {
     }
 
     return false;
+  }
+
+  private scrollToBottomCustomer(): void {
+    try {
+      if (this.customerChatContainer) {
+        this.customerChatContainer.nativeElement.scrollTop = this.customerChatContainer.nativeElement.scrollHeight;
+      }
+    } catch (err) {
+      console.error('Customer scroll error:', err);
+    }
+  }
+
+  private scrollToBottomAgentAi(): void {
+    try {
+      if (this.agentAiChatContainer) {
+        this.agentAiChatContainer.nativeElement.scrollTop = this.agentAiChatContainer.nativeElement.scrollHeight;
+      }
+    } catch (err) {
+      console.error('Agent AI scroll error:', err);
+    }
   }
 
 }

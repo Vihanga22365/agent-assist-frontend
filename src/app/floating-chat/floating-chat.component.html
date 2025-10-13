@@ -1,0 +1,109 @@
+<div class="floating-chat" [ngClass]="{ 'floating-chat--open': isOpen }">
+  <button
+    type="button"
+    class="floating-chat__launcher"
+    aria-label="Open agent collaboration chat"
+    (click)="toggleChat()"
+    *ngIf="!isOpen"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" class="floating-chat__icon">
+      <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7.5 8.25h9m-9 3h4.5M5.25 5.25h13.5a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H9.621a1.5 1.5 0 0 0-1.06.44l-2.433 2.433A.75.75 0 0 1 5 19.933V6.75a1.5 1.5 0 0 1 1.5-1.5Z" />
+    </svg>
+  </button>
+
+  <section class="floating-chat__window" *ngIf="isOpen" [ngClass]="{ 'floating-chat__window--minimized': isMinimized }">
+    <header class="floating-chat__header">
+      <div class="floating-chat__title">
+        <span class="floating-chat__name">Alex • AI Assistant</span>
+        <span class="floating-chat__status">Available • Collaborative mode</span>
+      </div>
+      <div class="floating-chat__actions">
+        <button type="button" class="floating-chat__action" (click)="minimizeChat()" aria-label="Minimize chat">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+            <path stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="M6 12h12" />
+          </svg>
+        </button>
+        <button type="button" class="floating-chat__action" (click)="closeChat()" aria-label="Close chat">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+            <path stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="m7 7 10 10m0-10-10 10" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+  <div class="floating-chat__banner" *ngIf="isCreatingSession">Starting collaboration…</div>
+  <div class="floating-chat__banner floating-chat__banner--error" *ngIf="sessionError">{{ sessionError }}</div>
+
+    <div
+      class="floating-chat__body"
+      #chatBody
+      [ngClass]="{ 'floating-chat__body--hidden': isMinimized }"
+    >
+      <ng-container *ngIf="isSessionReady; else pendingState">
+        <ng-container *ngIf="messages.length; else emptyState">
+          <div class="floating-chat__messages">
+            <div
+              class="floating-chat__message"
+              *ngFor="let message of messages"
+              [ngClass]="messageAlignment(message.role)"
+            >
+              <div class="floating-chat__bubble" [ngClass]="bubbleClasses(message.role)">
+                <ng-container *ngIf="message.role !== 'system'; else systemMessage">
+                  <p class="floating-chat__author">{{ message.author }} · {{ message.time }}</p>
+                  <p class="floating-chat__text">{{ message.text }}</p>
+                </ng-container>
+                <ng-template #systemMessage>
+                  <p class="floating-chat__system-text">{{ message.text }}</p>
+                </ng-template>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </ng-container>
+
+      <ng-template #pendingState>
+        <div class="floating-chat__placeholder">Preparing a fresh workspace for you…</div>
+      </ng-template>
+
+      <ng-template #emptyState>
+        <div class="floating-chat__placeholder">
+          Say hello to Alex to brainstorm next steps without leaving this view.
+        </div>
+      </ng-template>
+    </div>
+
+    <footer class="floating-chat__composer" *ngIf="!isMinimized">
+      <input
+        type="text"
+        [(ngModel)]="composerInput"
+        (keydown.enter)="handleComposerEnter($event)"
+        [disabled]="!isSessionReady || isSendingMessage"
+        placeholder="Type to collaborate..."
+      />
+      <button type="button" (click)="sendMessage()" [disabled]="!canSendMessage">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 12.5 19.5 4 15 20l-3.2-6.4L4 12.5Z" />
+        </svg>
+      </button>
+    </footer>
+
+    <p class="floating-chat__sending" *ngIf="isSendingMessage && !isMinimized">Sending…</p>
+
+    <button
+      type="button"
+      class="floating-chat__minimized"
+      *ngIf="isMinimized"
+      (click)="minimizeChat()"
+      aria-label="Expand chat"
+    >
+      <div class="floating-chat__minimized-avatar">A</div>
+      <div class="floating-chat__minimized-details">
+        <p class="floating-chat__minimized-name">Alex • AI Assistant</p>
+        <p class="floating-chat__minimized-note">Tap to resume collaboration</p>
+      </div>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+        <path stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="m6 15 6-6 6 6" />
+      </svg>
+    </button>
+  </section>
+</div>
