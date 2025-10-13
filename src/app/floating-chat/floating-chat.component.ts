@@ -3,6 +3,7 @@ import { NgClass, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { finalize } from 'rxjs/operators';
+import { marked } from 'marked';
 
 type FloatingChatRole = 'human' | 'ai' | 'system';
 
@@ -12,6 +13,7 @@ interface FloatingChatMessage {
   author: string;
   text: string;
   time: string;
+  html?: string;
 }
 
 interface RunResponsePart {
@@ -27,8 +29,7 @@ interface RunResponse {
 }
 
 interface FloatingAgentReply {
-  directMessages: string[];
-  toHumanAgentMessages: string[];
+  messages: string[];
 }
 
 @Component({
@@ -44,7 +45,7 @@ export class FloatingChatComponent {
   isOpen = false;
   isMinimized = false;
 
-  private readonly apiBaseUrl = 'http://localhost:8282';
+  private readonly apiBaseUrl = 'http://localhost:8283';
   private readonly appName = 'main_agent';
   readonly userId = 'floating_human_agent';
 
@@ -119,10 +120,8 @@ export class FloatingChatComponent {
       .subscribe({
         next: (responses) => {
           const reply = this.extractAgentReply(responses);
-
-          const combined = [...reply.directMessages, ...reply.toHumanAgentMessages];
-          if (combined.length) {
-            for (const text of combined) {
+          if (reply.messages.length) {
+            for (const text of reply.messages) {
               this.appendMessage({
                 id: this.nextMessageId('ai'),
                 role: 'ai',
@@ -206,8 +205,27 @@ export class FloatingChatComponent {
   }
 
   private appendMessage(message: FloatingChatMessage): void {
-    this.messages = [...this.messages, message];
+    const enriched: FloatingChatMessage = {
+      ...message,
+      html: this.renderMarkdown(message)
+    };
+
+    this.messages = [...this.messages, enriched];
     queueMicrotask(() => this.scrollToBottom());
+  }
+
+  private renderMarkdown(message: FloatingChatMessage): string | undefined {
+    if (!message.text?.trim() || message.role === 'system') {
+      return undefined;
+    }
+
+    try {
+      const rendered = marked.parse(message.text, { async: false });
+      return typeof rendered === 'string' ? rendered : undefined;
+    } catch (error) {
+      console.error('Floating chat markdown render error', error);
+      return undefined;
+    }
   }
 
   private scrollToBottom(): void {
@@ -224,8 +242,7 @@ export class FloatingChatComponent {
 
   private extractAgentReply(responses: RunResponse[] | null | undefined): FloatingAgentReply {
     const result: FloatingAgentReply = {
-      directMessages: [],
-      toHumanAgentMessages: []
+      messages: []
     };
 
     if (!responses?.length) {
@@ -244,131 +261,18 @@ export class FloatingChatComponent {
           continue;
         }
 
-        this.parseAgentResponseSegment(text, result);
+        result.messages.push(text);
       }
     }
 
-    if (!result.directMessages.length && !result.toHumanAgentMessages.length) {
+    if (!result.messages.length) {
       const fallback = responses[0]?.content?.parts?.[0]?.text?.trim();
       if (fallback) {
-        result.directMessages.push(fallback);
+        result.messages.push(fallback);
       }
     }
 
     return result;
-  }
-
-  private parseAgentResponseSegment(segment: string, result: FloatingAgentReply): void {
-    const fragments = this.splitResponseFragments(segment);
-    if (!fragments.length) {
-      return;
-    }
-
-    for (const fragment of fragments) {
-      if (!this.tryParseAgentJson(fragment, result)) {
-        result.directMessages.push(fragment);
-      }
-    }
-  }
-
-  private splitResponseFragments(segment: string): string[] {
-    const fragments: string[] = [];
-    let buffer = '';
-    let depth = 0;
-    let inString = false;
-    let escapeNext = false;
-
-    const pushBuffer = () => {
-      const value = buffer.trim();
-      if (value) {
-        fragments.push(value);
-      }
-      buffer = '';
-    };
-
-    const flushIfStandalone = () => {
-      if (depth === 0) {
-        pushBuffer();
-      }
-    };
-
-    for (const char of segment) {
-      buffer += char;
-
-      if (escapeNext) {
-        escapeNext = false;
-        continue;
-      }
-
-      if (char === '\\') {
-        escapeNext = true;
-        continue;
-      }
-
-      if (char === '"') {
-        inString = !inString;
-        continue;
-      }
-
-      if (!inString) {
-        if (char === '{') {
-          depth += 1;
-        } else if (char === '}') {
-          depth = Math.max(depth - 1, 0);
-          if (depth === 0) {
-            pushBuffer();
-            continue;
-          }
-        } else if ((char === '\n' || char === '\r') && depth === 0) {
-          buffer = buffer.slice(0, -1);
-          flushIfStandalone();
-          continue;
-        }
-      }
-    }
-
-    pushBuffer();
-
-    return fragments;
-  }
-
-  private tryParseAgentJson(fragment: string, result: FloatingAgentReply): boolean {
-    try {
-      const data = JSON.parse(fragment);
-
-      if (typeof data === 'string') {
-        result.directMessages.push(data);
-        return true;
-      }
-
-      if (data && typeof data === 'object') {
-        const action = typeof data.action === 'string' ? data.action.toLowerCase() : undefined;
-
-        if (action === 'direct' && typeof data.response === 'string') {
-          result.directMessages.push(data.response);
-          return true;
-        }
-
-        if (action === 'to_human_agent' && typeof data.response === 'string') {
-          result.toHumanAgentMessages.push(data.response);
-          return true;
-        }
-
-        if (typeof data.response === 'string') {
-          result.directMessages.push(data.response);
-          return true;
-        }
-
-        if (typeof data.message === 'string') {
-          result.directMessages.push(data.message);
-          return true;
-        }
-      }
-    } catch {
-      // Ignore JSON parse errors and fall back to treating fragment as plain text
-    }
-
-    return false;
   }
 
   private nextMessageId(prefix: string): string {

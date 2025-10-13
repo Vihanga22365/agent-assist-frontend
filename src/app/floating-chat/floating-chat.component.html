@@ -50,7 +50,7 @@
               <div class="floating-chat__bubble" [ngClass]="bubbleClasses(message.role)">
                 <ng-container *ngIf="message.role !== 'system'; else systemMessage">
                   <p class="floating-chat__author">{{ message.author }} · {{ message.time }}</p>
-                  <p class="floating-chat__text">{{ message.text }}</p>
+                  <div class="floating-chat__text" [innerHTML]="message.html ?? message.text"></div>
                 </ng-container>
                 <ng-template #systemMessage>
                   <p class="floating-chat__system-text">{{ message.text }}</p>
