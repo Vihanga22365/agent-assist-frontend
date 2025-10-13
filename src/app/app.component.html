@@ -143,16 +143,8 @@
             } @else {
               <section class="rounded-3xl border border-slate-200 bg-slate-50">
                 <button type="button" class="w-full flex items-center justify-between px-6 py-4 focus:outline-none" (click)="toggleAgentSummary()">
-                  <div class="flex items-center gap-3">
-                    <div class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 border border-blue-200 text-blue-700">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" class="h-5 w-5">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 19h12M12 5v9m0 0-3-3m3 3 3-3" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Customer summary</p>
-                      <h3 class="text-lg font-semibold text-slate-900 leading-snug">Latest transfer summary</h3>
-                    </div>
+                  <div class="space-y-1 text-left">
+                      <h3 class="text-lg font-semibold text-slate-900 leading-snug">Conversation Summary</h3>
                   </div>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" class="h-5 w-5 text-slate-500" [ngClass]="{ 'rotate-180': showAgentSummary }">
                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m6 9 6 6 6-6" />
@@ -172,8 +164,7 @@
               <section class="rounded-3xl border border-slate-200 bg-white">
                 <button type="button" class="w-full flex items-center justify-between px-5 py-4 focus:outline-none" (click)="toggleAgentHistory()">
                   <div class="space-y-1 text-left">
-                    <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Transfer conversation</p>
-                    <h3 class="text-lg font-semibold text-slate-900">Conversation history</h3>
+                    <h3 class="text-lg font-semibold text-slate-900">Conversation History</h3>
                   </div>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" class="h-5 w-5 text-slate-500" [ngClass]="{ 'rotate-180': showAgentHistory }">
                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m6 9 6 6 6-6" />
@@ -205,8 +196,7 @@
               <section class="rounded-3xl border border-slate-200 bg-white">
                 <button type="button" class="w-full flex items-center justify-between px-5 py-4 focus:outline-none" (click)="toggleAgentAiChat()">
                   <div class="space-y-1 text-left">
-                    <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Collaboration</p>
-                    <h3 class="text-lg font-semibold text-slate-900">Human agent · AI assistant chat</h3>
+                    <h3 class="text-lg font-semibold text-slate-900">Human agent - AI Agent Chat</h3>
                   </div>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" class="h-5 w-5 text-slate-500" [ngClass]="{ 'rotate-180': showAgentAiChat }">
                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m6 9 6 6 6-6" />
