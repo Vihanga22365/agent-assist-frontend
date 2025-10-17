@@ -21,7 +21,11 @@ export class CustomerApi {
 
   createSession({ appName, userId, sessionId }: SessionParams): Observable<void> {
     const url = `${this.apiBaseUrl}/apps/${appName}/users/${userId}/sessions/${sessionId}`;
-    return this.http.post<void>(url, {});
+    const body = {
+      user_id: "U001",
+      user_name: "Chathusha Wijenayake",
+    };
+    return this.http.post<void>(url, body);
   }
 
   run({ appName, userId, sessionId, formattedMessage, role = 'user' }: RunParams): Observable<RunResponse[]> {
