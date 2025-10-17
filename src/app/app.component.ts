@@ -253,6 +253,9 @@ export class AppComponent implements OnInit, OnDestroy {
       this.agentTransferSummary = latestSummary ?? null;
       this.agentThread = [...this.customerThread];
       this.showAgentPanel = true;
+      if (!this.showAgentSummary && !this.showAgentHistory && !this.showAgentAiChat) {
+        this.showAgentSummary = true;
+      }
     }
   }
 
@@ -491,6 +494,8 @@ export class AppComponent implements OnInit, OnDestroy {
           }
 
           // Ensure the collaborative panel is visible so agents notice new guidance
+          this.showAgentSummary = false;
+          this.showAgentHistory = false;
           this.showAgentAiChat = true;
 
           const aiMessage: AgentAiMessage = {
@@ -559,15 +564,21 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   toggleAgentSummary(): void {
-    this.showAgentSummary = !this.showAgentSummary;
+    this.showAgentSummary = true;
+    this.showAgentHistory = false;
+    this.showAgentAiChat = false;
   }
 
   toggleAgentHistory(): void {
-    this.showAgentHistory = !this.showAgentHistory;
+    this.showAgentSummary = false;
+    this.showAgentHistory = true;
+    this.showAgentAiChat = false;
   }
 
   toggleAgentAiChat(): void {
-    this.showAgentAiChat = !this.showAgentAiChat;
+    this.showAgentSummary = false;
+    this.showAgentHistory = false;
+    this.showAgentAiChat = true;
   }
 
   sendAgentMessage(): void {
@@ -584,9 +595,9 @@ export class AppComponent implements OnInit, OnDestroy {
       text: trimmed
     };
 
-    if (!this.showAgentAiChat) {
-      this.showAgentAiChat = true;
-    }
+    this.showAgentSummary = false;
+    this.showAgentHistory = false;
+    this.showAgentAiChat = true;
 
     this.appendAgentAiMessage(agentAiMessage);
 

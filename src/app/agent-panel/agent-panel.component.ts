@@ -33,8 +33,13 @@ export class AgentPanelComponent implements OnChanges, OnDestroy {
   @ViewChild('agentAiChatContainer') agentAiChatContainer?: ElementRef<HTMLDivElement>;
 
   private resizeObserver?: ResizeObserver;
+  sidebarCollapsed = false;
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['showAgentPanel'] && !changes['showAgentPanel'].currentValue) {
+      this.sidebarCollapsed = false;
+    }
+
     if ((changes['agentAiThread'] || changes['showAgentAiChat'] || changes['isAgentAiThinking']) && this.showAgentAiChat) {
       this.queueAgentScroll();
       this.setupResizeObserver();
@@ -44,6 +49,13 @@ export class AgentPanelComponent implements OnChanges, OnDestroy {
   ngOnDestroy(): void {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
+    }
+  }
+
+  toggleSidebar(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    if (!this.sidebarCollapsed && this.showAgentAiChat) {
+      this.queueAgentScroll();
     }
   }
 
@@ -89,6 +101,22 @@ export class AgentPanelComponent implements OnChanges, OnDestroy {
 
   get canSendAgentAiMessage(): boolean {
     return this.showAgentPanel && !!this.agentComposerInput.trim();
+  }
+
+  get activeWorkspaceTitle(): string {
+    if (this.showAgentAiChat) {
+      return 'Human Agent · AI Assistant';
+    }
+
+    if (this.showAgentHistory) {
+      return 'Conversation History';
+    }
+
+    if (this.showAgentSummary) {
+      return 'Conversation Summary';
+    }
+
+    return 'Workspace';
   }
 
   private queueAgentScroll(): void {
