@@ -202,6 +202,42 @@
     color: inherit;
   }
 
+  &__thinking {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  &__thinking-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.7rem;
+  }
+
+  &__thinking-dots {
+    display: inline-flex;
+    gap: 0.25rem;
+  }
+
+  &__thinking-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 9999px;
+    background: #6366f1;
+    opacity: 0.25;
+    animation: floating-chat-typing 1.2s infinite ease-in-out;
+  }
+
+  &__thinking-dot:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  &__thinking-dot:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
   &__banner {
     margin: 0.5rem 1.6rem 0;
     padding: 0.55rem 0.85rem;
@@ -359,5 +395,18 @@
     .floating-chat__minimized {
       pointer-events: auto;
     }
+  }
+}
+
+@keyframes floating-chat-typing {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.25;
+  }
+  40% {
+    transform: translateY(-0.2rem);
+    opacity: 1;
   }
 }

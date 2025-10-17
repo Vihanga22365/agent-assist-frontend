@@ -1,64 +1,29 @@
-import { Component, OnInit, inject, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
-import { NgClass } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpClientModule, HttpErrorResponse } from '@angular/common/http';
-import { finalize } from 'rxjs/operators';
-import { MarkdownPipe } from './markdown.pipe';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { HttpClientModule, HttpErrorResponse } from '@angular/common/http';
+import { Observable, Subscription, of, throwError } from 'rxjs';
+import { catchError, finalize, map, shareReplay, switchMap } from 'rxjs/operators';
 import { FloatingChatComponent } from './floating-chat/floating-chat.component';
-
-type ChatRole = 'customer' | 'assistant' | 'agent' | 'system';
-
-type AgentAiRole = 'human_agent' | 'ai_agent';
-
-interface ChatMessage {
-  id: string;
-  role: ChatRole;
-  author: string;
-  time: string;
-  text: string;
-  highlights?: string[];
-}
-
-interface SummaryPoint {
-  label: string;
-  value: string;
-  tone?: 'positive' | 'neutral' | 'warning';
-}
-
-interface RunResponsePart {
-  text?: string;
-}
-
-interface RunResponse {
-  content?: {
-    parts?: RunResponsePart[];
-    role?: string;
-  };
-  partial?: boolean;
-}
+import { CustomerChatComponent } from './customer-chat/customer-chat.component';
+import { AgentPanelComponent } from './agent-panel/agent-panel.component';
+import { AgentAiMessage, ChatMessage } from './models/chat.models';
+import { RunResponse } from './models/api.models';
+import { CustomerApi } from './customer';
+import { AgentPanelApi } from './agent-panel';
+import { ChatbotPayload, ChatbotSocketService } from './chatbot-socket.service';
 
 interface AgentReplyResult {
   directMessages: string[];
   transferSummaries: string[];
 }
-
-interface AgentAiMessage {
-  id: string;
-  role: AgentAiRole;
-  author: string;
-  time: string;
-  text: string;
-}
-
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [NgClass, FormsModule, HttpClientModule, MarkdownPipe, FloatingChatComponent],
+  imports: [CommonModule, HttpClientModule, CustomerChatComponent, AgentPanelComponent, FloatingChatComponent],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
-export class AppComponent implements OnInit, AfterViewChecked {
-  private readonly apiBaseUrl = 'http://localhost:8282';
+export class AppComponent implements OnInit, OnDestroy {
   private readonly appName = 'main_agent';
   readonly userId = 'chathusha';
 
@@ -74,97 +39,38 @@ export class AppComponent implements OnInit, AfterViewChecked {
   isSessionReady = false;
   isSendingMessage = false;
   sessionError: string | null = null;
+  isAssistantThinking = false;
+  isAgentAiThinking = false;
+  private agentAiSessionId: string | null = null;
+  private isCreatingAgentSession = false;
+  private pendingAgentSession$?: Observable<string>;
+  private chatbotUpdatesSub?: Subscription;
 
   private messageCounter = 0;
 
   readonly assistantName = 'Alex';
   readonly customerName = 'Chathusha Wijenayake';
   readonly humanAgentName = 'Udara Dharmasena';
-
-  readonly escalationRisk = 0.26;
-  readonly csatPrediction = 0.92;
-
-  private readonly http = inject(HttpClient);
-
-  @ViewChild('customerChatContainer') customerChatContainer?: ElementRef;
-  @ViewChild('agentAiChatContainer') agentAiChatContainer?: ElementRef;
-  @ViewChild(FloatingChatComponent) floatingChatComponent?: FloatingChatComponent;
-
-  private shouldScrollCustomer = false;
-  private shouldScrollAgentAi = false;
+  private readonly customerApi = inject(CustomerApi);
+  private readonly agentPanelApi = inject(AgentPanelApi);
+  private readonly chatbotSocket = inject(ChatbotSocketService);
 
   ngOnInit(): void {
+    this.chatbotUpdatesSub = this.chatbotSocket
+      .updates$()
+      .subscribe((payload) => this.handleChatbotSocketPayload(payload));
     this.startNewSession();
   }
 
-  ngAfterViewChecked(): void {
-    if (this.shouldScrollCustomer) {
-      this.scrollToBottomCustomer();
-      this.shouldScrollCustomer = false;
-    }
-    if (this.shouldScrollAgentAi) {
-      this.scrollToBottomAgentAi();
-      this.shouldScrollAgentAi = false;
-    }
-  }
-
-  get canSendMessage(): boolean {
-    return !!this.composerInput.trim() && this.isSessionReady && !this.isSendingMessage;
+  ngOnDestroy(): void {
+    this.chatbotUpdatesSub?.unsubscribe();
+    this.chatbotSocket.disconnect();
   }
 
   // Agent-side thread mirrors the customer conversation for quick context once transferred
   agentThread: ChatMessage[] = [];
   agentAiThread: AgentAiMessage[] = [];
   showAgentAiChat = false;
-
-  readonly summaryHeadline = 'Customer preparing for an executive client workshop tomorrow';
-
-  readonly summaryNarrative = `Amelia is traveling to a studio at 1pm and needs the Skyline overnight bag on-site before then. She has been calm but anxious. Delivering a proactive confirmation and waiving the expedite fee will reinforce trust.`;
-
-  readonly summaryPoints: SummaryPoint[] = [
-    { label: 'Goal', value: 'Secure delivery by 12:00 PM' },
-    { label: 'Order', value: '#7824-903A • Skyline Overnight Bag' },
-    { label: 'Sentiment', value: 'Concerned but collaborative', tone: 'warning' }
-  ];
-
-  readonly statusBadges: SummaryPoint[] = [
-    { label: 'Priority', value: 'High touch', tone: 'warning' },
-    { label: 'SLA', value: 'Due in 12 minutes', tone: 'neutral' },
-    { label: 'Channel', value: 'Live concierge chat', tone: 'positive' }
-  ];
-
-  readonly knowledgeTags = ['Expedite policy', 'Tier 2 loyalty perks', 'Courier coordination'];
-
-  bubbleClasses(role: ChatRole): string {
-    switch (role) {
-      case 'customer':
-        return 'bg-slate-900 border-slate-900 text-white shadow-lg';
-      case 'agent':
-        return 'bg-white border-slate-200 text-slate-900 shadow-md';
-      case 'system':
-        return 'bg-rose-50 border-rose-200 text-rose-700';
-      default:
-        return 'bg-slate-100 border-slate-200 text-slate-800';
-    }
-  }
-
-  alignment(role: ChatRole): string {
-    if (role === 'system') {
-      return 'justify-center text-center';
-    }
-    return role === 'customer' ? 'justify-end text-left' : 'justify-start text-left';
-  }
-
-  toneBadgeClass(point: SummaryPoint): string {
-    switch (point.tone) {
-      case 'warning':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'positive':
-        return 'bg-green-50 text-green-700 border-green-200';
-      default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
-    }
-  }
 
   startNewSession(): void {
     const newSessionId = this.generateSessionId();
@@ -182,11 +88,15 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.isSessionReady = false;
     this.isCreatingSession = true;
     this.sessionError = null;
+    this.isAssistantThinking = false;
+    this.isAgentAiThinking = false;
+    this.agentAiSessionId = null;
+    this.isCreatingAgentSession = false;
+    this.pendingAgentSession$ = undefined;
+    this.chatbotSocket.connect(newSessionId);
 
-    const url = `${this.apiBaseUrl}/apps/${this.appName}/users/${this.userId}/sessions/${newSessionId}`;
-
-    this.http
-      .post<void>(url, {})
+    this.customerApi
+      .createSession({ appName: this.appName, userId: this.userId, sessionId: newSessionId })
       .pipe(finalize(() => (this.isCreatingSession = false)))
       .subscribe({
         next: () => {
@@ -216,57 +126,26 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.appendMessage(userMessage);
     this.composerInput = '';
     this.isSendingMessage = true;
+    this.isAssistantThinking = true;
 
     const formattedMessage = this.formatUserMessage(trimmed);
 
-    const payload = {
-      appName: this.appName,
-      userId: this.userId,
-      sessionId: this.sessionId,
-      newMessage: {
-        role: 'user',
-        parts: [{ text: formattedMessage }]
-      }
-    };
-
-    this.http
-      .post<RunResponse[]>(`${this.apiBaseUrl}/run`, payload)
-      .pipe(finalize(() => (this.isSendingMessage = false)))
+    this.customerApi
+      .run({
+        appName: this.appName,
+        userId: this.userId,
+        sessionId: this.sessionId,
+        formattedMessage,
+        role: 'user'
+      })
+      .pipe(finalize(() => {
+        this.isSendingMessage = false;
+        this.isAssistantThinking = false;
+      }))
       .subscribe({
-        next: (responses) => {
+        next: (responses: RunResponse[]) => {
           const reply = this.extractAgentReply(responses);
-
-          if (reply.directMessages.length) {
-            for (const messageText of reply.directMessages) {
-              if (this.isHumanAgentAiPayload(messageText)) {
-                continue;
-              }
-              this.appendMessage({
-                id: this.nextMessageId('assistant'),
-                role: 'assistant',
-                author: `${this.assistantName} • AI Assistant`,
-                time: this.currentTime(),
-                text: messageText
-              });
-            }
-          }
-
-          if (reply.transferSummaries.length) {
-            const latestSummary = reply.transferSummaries[reply.transferSummaries.length - 1];
-            const transferMessage: ChatMessage = {
-              id: this.nextMessageId('system'),
-              role: 'system',
-              author: `${this.assistantName} • System`,
-              time: this.currentTime(),
-              text: 'You have been transferred to a human agent for further assistance.'
-            };
-            this.appendMessage(transferMessage);
-
-            // Expose summary and history to the Human Agent panel
-            this.agentTransferSummary = latestSummary ?? null;
-            this.agentThread = [...this.customerThread];
-            this.showAgentPanel = true;
-          }
+          this.handleAgentReplyResult(reply);
         },
         error: (error: HttpErrorResponse) => {
           console.error('Chat request failed', error);
@@ -281,28 +160,163 @@ export class AppComponent implements OnInit, AfterViewChecked {
       });
   }
 
-  handleComposerEnter(event: KeyboardEvent | Event): void {
-    const keyboardEvent = event as KeyboardEvent;
-    if (keyboardEvent.shiftKey) {
-      return;
-    }
-
-    keyboardEvent.preventDefault();
-    this.sendCustomerMessage();
-  }
-
   private appendMessage(message: ChatMessage): void {
     const updated = [...this.customerThread, message];
     this.customerThread = updated;
     if (this.showAgentPanel) {
       this.agentThread = updated;
     }
-    this.shouldScrollCustomer = true;
   }
 
   private appendAgentAiMessage(message: AgentAiMessage): void {
     this.agentAiThread = [...this.agentAiThread, message];
-    this.shouldScrollAgentAi = true;
+  }
+
+  private handleChatbotSocketPayload(payload: ChatbotPayload): void {
+    if (!payload || payload.sessionId !== this.sessionId) {
+      return;
+    }
+
+    if (!payload.success) {
+      if (payload.error) {
+        console.error('Chatbot socket error', payload.error);
+      }
+      return;
+    }
+
+    const response = payload.response;
+    let handled = false;
+
+    if (this.isRunResponseArray(response)) {
+      const reply = this.extractAgentReply(response);
+      this.handleAgentReplyResult(reply);
+      handled = true;
+    } else if (this.isRunResponse(response)) {
+      const reply = this.extractAgentReply([response]);
+      this.handleAgentReplyResult(reply);
+      handled = true;
+    } else {
+      const messages = this.extractSocketResponses(response);
+      if (messages.length) {
+        const reply: AgentReplyResult = {
+          directMessages: messages,
+          transferSummaries: []
+        };
+        this.handleAgentReplyResult(reply);
+        handled = true;
+      }
+    }
+
+    if (handled) {
+      this.isAssistantThinking = false;
+      this.isSendingMessage = false;
+    }
+  }
+
+  private handleAgentReplyResult(reply: AgentReplyResult): void {
+    if (reply.directMessages.length) {
+      for (const messageText of reply.directMessages) {
+        const trimmed = messageText?.trim();
+        if (!trimmed || this.isHumanAgentAiPayload(trimmed)) {
+          continue;
+        }
+
+        const lastMessage = this.customerThread[this.customerThread.length - 1];
+        if (lastMessage?.role === 'assistant' && lastMessage.text === trimmed) {
+          continue;
+        }
+
+        this.appendMessage({
+          id: this.nextMessageId('assistant'),
+          role: 'assistant',
+          author: `${this.assistantName} • AI Assistant`,
+          time: this.currentTime(),
+          text: trimmed
+        });
+      }
+    }
+
+    if (reply.transferSummaries.length) {
+      const latestSummary = reply.transferSummaries[reply.transferSummaries.length - 1];
+      const previous = this.customerThread[this.customerThread.length - 1];
+      if (previous?.role !== 'system' || previous.text !== 'You have been transferred to a human agent for further assistance.') {
+        const transferMessage: ChatMessage = {
+          id: this.nextMessageId('system'),
+          role: 'system',
+          author: `${this.assistantName} • System`,
+          time: this.currentTime(),
+          text: 'You have been transferred to a human agent for further assistance.'
+        };
+        this.appendMessage(transferMessage);
+      }
+
+      this.agentTransferSummary = latestSummary ?? null;
+      this.agentThread = [...this.customerThread];
+      this.showAgentPanel = true;
+    }
+  }
+
+  private extractSocketResponses(response: unknown): string[] {
+    if (response == null) {
+      return [];
+    }
+
+    if (typeof response === 'string') {
+      const trimmed = response.trim();
+      return trimmed ? [trimmed] : [];
+    }
+
+    if (Array.isArray(response)) {
+      return response.flatMap((item) => this.extractSocketResponses(item));
+    }
+
+    if (typeof response === 'object') {
+      const data = response as Record<string, unknown>;
+      const result: string[] = [];
+
+      const keys: (keyof typeof data)[] = ['text', 'message', 'response'];
+      for (const key of keys) {
+        if (key in data) {
+          const value = data[key];
+          if (value && value === response) {
+            continue;
+          }
+          result.push(...this.extractSocketResponses(value));
+        }
+      }
+
+      const messagesValue = data['messages'];
+      if (messagesValue && messagesValue !== response) {
+        result.push(...this.extractSocketResponses(messagesValue));
+      }
+
+      const contentValue = data['content'];
+      if (contentValue && contentValue !== response) {
+        result.push(...this.extractSocketResponses(contentValue));
+      }
+
+      const partsValue = data['parts'];
+      if (partsValue && partsValue !== response) {
+        result.push(...this.extractSocketResponses(partsValue));
+      }
+
+      return result;
+    }
+
+    return [];
+  }
+
+  private isRunResponse(value: unknown): value is RunResponse {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const candidate = value as Partial<RunResponse>;
+    return 'content' in candidate || 'partial' in candidate;
+  }
+
+  private isRunResponseArray(value: unknown): value is RunResponse[] {
+    return Array.isArray(value) && value.every((item) => this.isRunResponse(item));
   }
 
   private extractAgentReply(responses: RunResponse[] | null | undefined): AgentReplyResult {
@@ -339,6 +353,31 @@ export class AppComponent implements OnInit, AfterViewChecked {
     }
 
     return result;
+  }
+
+  private extractAgentPanelReply(responses: RunResponse[] | null | undefined): string {
+    // Agent panel responses (port 8284) come as plain text/markdown, not JSON
+    if (!responses?.length) {
+      return '';
+    }
+
+    const messages: string[] = [];
+
+    for (const item of responses) {
+      const parts = item.content?.parts;
+      if (!parts?.length) {
+        continue;
+      }
+
+      for (const part of parts) {
+        const text = part.text?.trim();
+        if (text) {
+          messages.push(text);
+        }
+      }
+    }
+
+    return messages.join('\n\n');
   }
 
   private parseAgentResponseSegment(segment: string, result: AgentReplyResult): void {
@@ -415,6 +454,8 @@ export class AppComponent implements OnInit, AfterViewChecked {
     return fragments;
   }
 
+  // Only used for customer panel responses (port 8282) which come as JSON strings
+  // Agent panel responses (port 8284) are plain text/markdown and handled separately
   private tryParseAgentJson(fragment: string, result: AgentReplyResult): boolean {
     try {
       const data = JSON.parse(fragment);
@@ -529,10 +570,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.showAgentAiChat = !this.showAgentAiChat;
   }
 
-  get canSendAgentAiMessage(): boolean {
-    return this.showAgentPanel && !!this.agentComposerInput.trim();
-  }
-
   sendAgentMessage(): void {
     const trimmed = this.agentComposerInput.trim();
     if (!this.showAgentPanel || !trimmed) {
@@ -553,65 +590,108 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
     this.appendAgentAiMessage(agentAiMessage);
 
-    // Send formatted message to backend
     const formattedMessage = JSON.stringify({ user_type: 'human_agent', message: trimmed });
 
-    const payload = {
-      appName: this.appName,
-      userId: this.userId,
-      sessionId: this.sessionId,
-      newMessage: {
-        role: 'user',
-        parts: [{ text: formattedMessage }]
-      }
-    };
+    this.isAgentAiThinking = true;
 
-    this.http
-      .post<RunResponse[]>(`${this.apiBaseUrl}/run`, payload)
+    this.ensureAgentSession(trimmed)
+      .pipe(
+        switchMap((sessionId) =>
+          this.agentPanelApi.run({
+            appName: this.appName,
+            userId: this.userId,
+            sessionId,
+            formattedMessage,
+            role: 'user'
+          })
+        ),
+        finalize(() => {
+          this.isAgentAiThinking = false;
+        })
+      )
       .subscribe({
-        next: (responses) => {
-          const reply = this.extractAgentReply(responses);
+        next: (responses: RunResponse[]) => {
+          // Agent panel responses come as plain text/markdown, not JSON
+          const messageText = this.extractAgentPanelReply(responses);
 
-          if (reply.directMessages.length) {
-            for (const messageText of reply.directMessages) {
-              if (this.isHumanAgentAiPayload(messageText)) {
-                continue;
-              }
-              this.appendMessage({
-                id: this.nextMessageId('assistant'),
-                role: 'assistant',
-                author: `${this.assistantName} • AI Assistant`,
-                time: this.currentTime(),
-                text: messageText
-              });
-            }
+          if (messageText) {
+            const aiMessage: AgentAiMessage = {
+              id: this.nextMessageId('ai-to-human'),
+              role: 'ai_agent',
+              author: `${this.assistantName} • AI Assistant`,
+              time: this.currentTime(),
+              text: messageText
+            };
+
+            this.appendAgentAiMessage(aiMessage);
           }
         },
         error: (error: HttpErrorResponse) => {
           console.error('Human agent message failed', error);
+          this.appendAgentAiMessage({
+            id: this.nextMessageId('ai-error'),
+            role: 'ai_agent',
+            author: `${this.assistantName} • AI Assistant`,
+            time: this.currentTime(),
+            text: 'Sorry, I could not process that request. Please try again.'
+          });
         }
       });
 
     this.agentComposerInput = '';
   }
 
-  handleAgentEnter(event: KeyboardEvent | Event): void {
-    const keyboardEvent = event as KeyboardEvent;
-    if (keyboardEvent.shiftKey) {
-      return;
+  private ensureAgentSession(humanAgentQuery: string): Observable<string> {
+    if (this.agentAiSessionId) {
+      return of(this.agentAiSessionId);
     }
-    keyboardEvent.preventDefault();
-    this.sendAgentMessage();
-  }
 
-  agentAiAlignment(role: AgentAiRole): string {
-    return role === 'human_agent' ? 'justify-end text-left' : 'justify-start text-left';
-  }
+    if (this.pendingAgentSession$) {
+      return this.pendingAgentSession$;
+    }
 
-  agentAiBubbleClasses(role: AgentAiRole): string {
-    return role === 'human_agent'
-      ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-      : 'bg-white border-slate-200 text-slate-900 shadow-sm';
+    const sessionId = this.generateSessionId();
+    this.isCreatingAgentSession = true;
+
+    // Transform conversation history to only include role and message for 8284 API
+    const conversationHistory = this.customerThread.map(msg => ({
+      role: msg.role,
+      message: msg.text
+    }));
+
+    const context = {
+      conversationSummary: this.agentTransferSummary?.trim() || 'No summary provided.',
+      conversationHistory: conversationHistory,
+      humanAgentQuery,
+      previousChatbotSession: this.sessionId
+    };
+
+    const create$ = this.agentPanelApi
+      .createSession({
+        appName: this.appName,
+        userId: this.userId,
+        sessionId,
+        context
+      })
+      .pipe(
+        map(() => {
+          this.agentAiSessionId = sessionId;
+          return sessionId;
+        }),
+        catchError((error) => {
+          this.agentAiSessionId = null;
+          console.error('Agent session creation failed', error);
+          return throwError(() => error);
+        }),
+        finalize(() => {
+          this.isCreatingAgentSession = false;
+          this.pendingAgentSession$ = undefined;
+        })
+      );
+
+    this.pendingAgentSession$ = create$.pipe(shareReplay(1));
+
+    return this.pendingAgentSession$;
   }
 
   private isHumanAgentAiPayload(value: string): boolean {
@@ -631,25 +711,4 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
     return false;
   }
-
-  private scrollToBottomCustomer(): void {
-    try {
-      if (this.customerChatContainer) {
-        this.customerChatContainer.nativeElement.scrollTop = this.customerChatContainer.nativeElement.scrollHeight;
-      }
-    } catch (err) {
-      console.error('Customer scroll error:', err);
-    }
-  }
-
-  private scrollToBottomAgentAi(): void {
-    try {
-      if (this.agentAiChatContainer) {
-        this.agentAiChatContainer.nativeElement.scrollTop = this.agentAiChatContainer.nativeElement.scrollHeight;
-      }
-    } catch (err) {
-      console.error('Agent AI scroll error:', err);
-    }
-  }
-
 }

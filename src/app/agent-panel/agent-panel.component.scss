@@ -1,0 +1,115 @@
+/* Mobile scrolling improvements for agent panel */
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Mobile-specific fixes */
+@media (max-width: 768px) {
+  :host {
+    /* Ensure proper height calculation on mobile */
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .glass-card {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+
+    /* Better mobile scrolling */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Main scrollable content area */
+  .flex-1.overflow-y-auto {
+    /* Improve mobile scrolling performance */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    transform: translateZ(0); /* Hardware acceleration */
+    will-change: scroll-position;
+
+    /* Ensure proper height on mobile */
+    min-height: 0;
+    max-height: 100%;
+  }
+
+  /* AI chat container specific mobile fixes */
+  [data-agent-ai-chat] {
+    /* Better height for mobile screens */
+    max-height: min(50vh, 20rem);
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    transform: translateZ(0);
+  }
+}
+
+/* Very small mobile screens */
+@media (max-width: 480px) {
+  [data-agent-ai-chat] {
+    max-height: min(40vh, 16rem);
+  }
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+  .overflow-y-auto {
+    /* Fix iOS scroll issues */
+    -webkit-overflow-scrolling: touch;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Typing indicator animation */
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #1f2937;
+
+  &__label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.7rem;
+  }
+
+  &__dots {
+    display: inline-flex;
+    gap: 0.25rem;
+  }
+
+  &__dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 9999px;
+    background: #3b82f6;
+    opacity: 0.25;
+    animation: typing-bounce 1.2s infinite ease-in-out;
+  }
+
+  &__dot:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  &__dot:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+}
+
+@keyframes typing-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.25;
+  }
+  40% {
+    transform: translateY(-0.2rem);
+    opacity: 1;
+  }
+}

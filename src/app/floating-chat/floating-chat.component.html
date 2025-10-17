@@ -57,6 +57,28 @@
                 </ng-template>
               </div>
             </div>
+            <div
+              class="floating-chat__message floating-chat__message--ai"
+              *ngIf="isAgentThinking"
+            >
+              <div
+                class="floating-chat__bubble floating-chat__bubble--ai"
+                role="status"
+                aria-live="polite"
+              >
+                <p class="floating-chat__author">Alex • AI Assistant</p>
+                <div class="floating-chat__text">
+                  <div class="floating-chat__thinking">
+                    <span class="floating-chat__thinking-label">Agent Thinking</span>
+                    <span class="floating-chat__thinking-dots" aria-hidden="true">
+                      <span class="floating-chat__thinking-dot"></span>
+                      <span class="floating-chat__thinking-dot"></span>
+                      <span class="floating-chat__thinking-dot"></span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </ng-container>
       </ng-container>

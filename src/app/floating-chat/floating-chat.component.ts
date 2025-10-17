@@ -55,6 +55,7 @@ export class FloatingChatComponent {
   isCreatingSession = false;
   isSessionReady = false;
   isSendingMessage = false;
+  isAgentThinking = false;
   sessionError: string | null = null;
 
   private messageCounter = 0;
@@ -101,6 +102,8 @@ export class FloatingChatComponent {
     this.appendMessage(humanMessage);
     this.composerInput = '';
     this.isSendingMessage = true;
+  this.isAgentThinking = true;
+  queueMicrotask(() => this.scrollToBottom());
 
     const formattedMessage = JSON.stringify({ user_type: 'human_agent', message: trimmed });
 
@@ -116,7 +119,10 @@ export class FloatingChatComponent {
 
     this.http
       .post<RunResponse[]>(`${this.apiBaseUrl}/run`, payload)
-      .pipe(finalize(() => (this.isSendingMessage = false)))
+      .pipe(finalize(() => {
+        this.isSendingMessage = false;
+        this.isAgentThinking = false;
+      }))
       .subscribe({
         next: (responses) => {
           const reply = this.extractAgentReply(responses);
@@ -187,6 +193,7 @@ export class FloatingChatComponent {
     this.sessionError = null;
     this.sessionId = this.generateSessionId();
     this.messages = [];
+  this.isAgentThinking = false;
 
     const url = `${this.apiBaseUrl}/apps/${this.appName}/users/${this.userId}/sessions/${this.sessionId}`;
 
