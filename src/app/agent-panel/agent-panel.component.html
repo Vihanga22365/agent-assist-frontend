@@ -104,11 +104,7 @@
                   data-agent-ai-chat
                   style="overscroll-behavior: contain; -webkit-overflow-scrolling: touch;"
                 >
-                  @if (!agentAiThread.length) {
-                    <div class="agent-panel__empty">
-                      Start a private chat with {{ assistantName }} for coaching. Messages stay off the customer timeline.
-                    </div>
-                  } @else {
+                  @if (agentAiThread.length) {
                     @for (message of agentAiThread; track message.id) {
                       <div class="flex w-full" [ngClass]="agentAiAlignment(message.role)">
                         <div class="agent-panel__chat-item">
@@ -153,7 +149,6 @@
                   <div class="agent-panel__composer">
                     <div class="agent-panel__composer-meta">
                       <span>Ask the AI assistant</span>
-                      <span>Enter to send · Shift + Enter for new line</span>
                     </div>
                     <div class="agent-panel__composer-input">
                       <textarea

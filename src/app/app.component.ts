@@ -239,13 +239,13 @@ export class AppComponent implements OnInit, OnDestroy {
     if (reply.transferSummaries.length) {
       const latestSummary = reply.transferSummaries[reply.transferSummaries.length - 1];
       const previous = this.customerThread[this.customerThread.length - 1];
-      if (previous?.role !== 'system' || previous.text !== 'You have been transferred to a human agent for further assistance.') {
+      if (previous?.role !== 'system' || previous.text !== 'I’m consulting a Human Supervisor, Give me a few moments.') {
         const transferMessage: ChatMessage = {
           id: this.nextMessageId('system'),
           role: 'system',
           author: `${this.assistantName} • System`,
           time: this.currentTime(),
-          text: 'You have been transferred to a human agent for further assistance.'
+          text: 'I’m consulting a Human Supervisor, Give me a few moments.'
         };
         this.appendMessage(transferMessage);
       }
