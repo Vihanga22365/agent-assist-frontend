@@ -17,7 +17,7 @@ interface RunParams extends SessionParams {
 @Injectable({ providedIn: 'root' })
 export class CustomerApi {
   private readonly http = inject(HttpClient);
-  private readonly apiBaseUrl = 'http://localhost:8282';
+  private readonly apiBaseUrl = 'http://127.0.0.1:7282';
 
   createSession({ appName, userId, sessionId }: SessionParams): Observable<void> {
     const url = `${this.apiBaseUrl}/apps/${appName}/users/${userId}/sessions/${sessionId}`;

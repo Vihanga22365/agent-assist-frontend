@@ -359,7 +359,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private extractAgentPanelReply(responses: RunResponse[] | null | undefined): string {
-    // Agent panel responses (port 8284) come as plain text/markdown, not JSON
+    // Agent panel responses (port 7284) come as plain text/markdown, not JSON
     if (!responses?.length) {
       return '';
     }
@@ -457,8 +457,8 @@ export class AppComponent implements OnInit, OnDestroy {
     return fragments;
   }
 
-  // Only used for customer panel responses (port 8282) which come as JSON strings
-  // Agent panel responses (port 8284) are plain text/markdown and handled separately
+  // Only used for customer panel responses (port 7282) which come as JSON strings
+  // Agent panel responses (port 7284) are plain text/markdown and handled separately
   private tryParseAgentJson(fragment: string, result: AgentReplyResult): boolean {
     try {
       const data = JSON.parse(fragment);
@@ -664,7 +664,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const sessionId = this.generateSessionId();
     this.isCreatingAgentSession = true;
 
-    // Transform conversation history to only include role and message for 8284 API
+    // Transform conversation history to only include role and message for 7284 API
     const conversationHistory = this.customerThread.map(msg => ({
       role: msg.role,
       message: msg.text

@@ -16,7 +16,7 @@ export class ChatbotSocketService implements OnDestroy {
   private socket?: Socket;
   private readonly stream$ = new Subject<ChatbotPayload>();
   private currentSessionId?: string;
-  private readonly socketUrl = 'http://localhost:8284';
+  private readonly socketUrl = 'http://127.0.0.1:7284';
 
   constructor() {
     this.initializeSocket();
