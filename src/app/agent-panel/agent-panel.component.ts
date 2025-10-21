@@ -105,15 +105,15 @@ export class AgentPanelComponent implements OnChanges, OnDestroy {
 
   get activeWorkspaceTitle(): string {
     if (this.showAgentAiChat) {
-      return 'Human Agent · AI Assistant';
+      return 'Human Agent and AI Chat';
     }
 
     if (this.showAgentHistory) {
-      return 'Conversation History';
+      return 'Customer Conversation with AI';
     }
 
     if (this.showAgentSummary) {
-      return 'Conversation Summary';
+      return 'Case Summary';
     }
 
     return 'Workspace';

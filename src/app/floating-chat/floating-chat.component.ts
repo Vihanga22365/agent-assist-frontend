@@ -45,7 +45,7 @@ export class FloatingChatComponent {
   isOpen = false;
   isMinimized = false;
 
-  private readonly apiBaseUrl = 'http://localhost:8283';
+  private readonly apiBaseUrl = 'http://127.0.0.1:8283';
   private readonly appName = 'main_agent';
   readonly userId = 'floating_human_agent';
 
