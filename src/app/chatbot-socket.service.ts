@@ -2,6 +2,22 @@ import { Injectable, OnDestroy } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
 import { io, Socket } from 'socket.io-client';
 
+function resolveChatbotSocketUrl(): string {
+  const config = (globalThis as { agentAssistConfig?: { chatbotSocketUrl?: string } }).agentAssistConfig;
+  if (config?.chatbotSocketUrl) {
+    return config.chatbotSocketUrl;
+  }
+
+  const fallback = 'http://127.0.0.1:7284';
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  const protocol = window.location.protocol || 'http:';
+  const hostname = window.location.hostname || '127.0.0.1';
+  return `${protocol}//${hostname}:7284`;
+}
+
 export interface ChatbotPayload {
   success: boolean;
   response?: unknown;
@@ -16,7 +32,7 @@ export class ChatbotSocketService implements OnDestroy {
   private socket?: Socket;
   private readonly stream$ = new Subject<ChatbotPayload>();
   private currentSessionId?: string;
-  private readonly socketUrl = 'http://127.0.0.1:7284';
+  private readonly socketUrl = resolveChatbotSocketUrl();
 
   constructor() {
     this.initializeSocket();

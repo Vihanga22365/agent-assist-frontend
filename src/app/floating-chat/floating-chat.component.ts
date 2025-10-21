@@ -5,6 +5,22 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { finalize } from 'rxjs/operators';
 import { marked } from 'marked';
 
+function resolveFloatingChatApiBaseUrl(): string {
+  const config = (globalThis as { agentAssistConfig?: { floatingChatApiBaseUrl?: string } }).agentAssistConfig;
+  if (config?.floatingChatApiBaseUrl) {
+    return config.floatingChatApiBaseUrl;
+  }
+
+  const fallback = 'http://127.0.0.1:8283';
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  const protocol = window.location.protocol || 'http:';
+  const hostname = window.location.hostname || '127.0.0.1';
+  return `${protocol}//${hostname}:8283`;
+}
+
 type FloatingChatRole = 'human' | 'ai' | 'system';
 
 interface FloatingChatMessage {
@@ -45,7 +61,7 @@ export class FloatingChatComponent {
   isOpen = false;
   isMinimized = false;
 
-  private readonly apiBaseUrl = 'http://127.0.0.1:8283';
+  private readonly apiBaseUrl = resolveFloatingChatApiBaseUrl();
   private readonly appName = 'main_agent';
   readonly userId = 'floating_human_agent';
 
